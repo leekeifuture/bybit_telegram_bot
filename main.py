@@ -51,9 +51,9 @@ def gen_markup(user_id):
     return markup
 
 
-@dp.callback_query_handler()  # TODO: check if from admin
+@dp.callback_query_handler(lambda callback:
+                           callback.from_user.id in TELEGRAM_ADMINS)
 async def callback_query(callback: types.CallbackQuery):
-    print()
     if callback.data.startswith('approve'):
         user_id = int(callback.data.split('approve_')[1])
         user = await client.get_entity(user_id)
@@ -200,7 +200,7 @@ async def handler_new_message(event):
 
         for admin_id in TELEGRAM_ADMINS:
             await bot.send_message(
-                int(admin_id),
+                admin_id,
                 '**' + user_full_name + '** sent request to join to the chat!\n'
                                         'ByBit UID: ' + event.message.text,
                 reply_markup=gen_markup(event.message.from_id.user_id),
