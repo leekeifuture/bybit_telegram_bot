@@ -17,7 +17,7 @@ from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import InputPeerUser
 
 from settings import SESSION_STRING, API_ID, API_HASH, TELEGRAM_CHAT_ID, \
-    TELEGRAM_BOT_TOKEN
+    TELEGRAM_BOT_TOKEN, TELEGRAM_ADMINS
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
@@ -198,13 +198,14 @@ async def handler_new_message(event):
                     ' with id: ' + str(user.id) +
                     ' and uid: ' + str(event.message.text))
 
-        await bot.send_message(
-            365801236,  # TODO: add admins
-            '**' + user_full_name + '** sent request to join to the chat!\n'
-                                    'ByBit UID: ' + event.message.text,
-            reply_markup=gen_markup(event.message.from_id.user_id),
-            parse_mode=ParseMode.MARKDOWN
-        )
+        for admin_id in TELEGRAM_ADMINS:
+            await bot.send_message(
+                int(admin_id),
+                '**' + user_full_name + '** sent request to join to the chat!\n'
+                                        'ByBit UID: ' + event.message.text,
+                reply_markup=gen_markup(event.message.from_id.user_id),
+                parse_mode=ParseMode.MARKDOWN
+            )
 
         await client.send_message(
             event.message.from_id.user_id,
