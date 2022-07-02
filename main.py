@@ -13,6 +13,8 @@ from telethon.sessions import StringSession
 from telethon.sync import TelegramClient
 from telethon.tl import functions
 from telethon.tl.functions.channels import InviteToChannelRequest
+from telethon.tl.functions.messages import GetHistoryRequest
+from telethon.tl.types import InputPeerUser
 
 from settings import SESSION_STRING, API_ID, API_HASH, TELEGRAM_CHAT_ID, \
     TELEGRAM_BOT_TOKEN
@@ -152,22 +154,37 @@ async def callback_query(callback: types.CallbackQuery):
                     callback.from_user.full_name)
 
 
-# TODO: add typing action
-# TODO: add message when user write first message
 @client.on(events.NewMessage(func=lambda message: message.is_private))
 async def handler_new_message(event):
-    if await is_user_in_chat(event.message.from_id.user_id):
+    reply = await event.reply('Loading...')
+    user = await client.get_entity(reply.input_chat)
+    user_last_name = f' {user.last_name}' if user.last_name else ''
+    user_full_name = user.first_name + user_last_name
+
+    history = await client(GetHistoryRequest(
+        peer=InputPeerUser(user.id, user.access_hash),
+        offset_id=0,
+        offset_date=None,
+        add_offset=0,
+        limit=1,
+        max_id=0,
+        min_id=0,
+        hash=user.access_hash
+    ))
+
+    if history.count <= 2:
+        await client.send_message(
+            event.message.from_id.user_id,
+            'Welcome! I\'m here to help you get access to ByBit '
+            'chat. Just send me your UID from ByBit '
+            'affiliates and wait a bit when someone from admins '
+            'approves your request :fingers_crossed:'
+        )
+    elif await is_user_in_chat(event.message.from_id.user_id):
         await client.send_message(
             event.message.from_id.user_id, 'You already consist in the chat! ✅'
         )
     elif event.message.text.isdigit():
-        uid = event.message.text
-
-        reply = await event.reply('Loading...')
-        user = await client.get_entity(reply.input_chat)
-        user_last_name = f' {user.last_name}' if user.last_name else ''
-        user_full_name = user.first_name + user_last_name
-
         await client(
             functions.contacts.AddContactRequest(
                 id=reply.input_chat.user_id,
@@ -179,12 +196,12 @@ async def handler_new_message(event):
 
         logger.info('Started processing ' + user_full_name +
                     ' with id: ' + str(user.id) +
-                    ' and uid: ' + str(uid))
+                    ' and uid: ' + str(event.message.text))
 
         await bot.send_message(
             365801236,  # TODO: add admins
             '**' + user_full_name + '** sent request to join to the chat!\n'
-                                    'ByBit UID: ' + uid,
+                                    'ByBit UID: ' + event.message.text,
             reply_markup=gen_markup(event.message.from_id.user_id),
             parse_mode=ParseMode.MARKDOWN
         )
@@ -195,8 +212,6 @@ async def handler_new_message(event):
             'Please wait up to 48 hours to approve your request 🕔'
         )
 
-        await reply.delete()
-
         logger.info(
             user_full_name + ' (' + str(
                 user.id) + ') ' + 'is successfully processed!'
@@ -206,6 +221,8 @@ async def handler_new_message(event):
             event.message.from_id.user_id,
             'Incorrect message! Please send your ByBit UID...'
         )
+
+    await reply.delete()
 
 
 async def main():
